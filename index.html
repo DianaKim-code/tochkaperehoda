@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#123f3a">
+  <meta name="description" content="Онлайн-версия трансформационной игры «Точка перехода» для ведущей.">
+  <title>Точка перехода — онлайн-игра</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./css/styles.css">
+  <link rel="stylesheet" href="./css/print.css" media="print">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">↗</span>
+      <div><strong>Точка перехода</strong><span>пространство ведущей</span></div>
+    </div>
+    <div class="top-actions">
+      <button class="quiet-button" id="undo-button" type="button">Отменить</button>
+      <button class="quiet-button" id="backup-button" type="button">Резервная копия</button>
+      <button class="quiet-button danger-text" id="new-game-button" type="button">Новая партия</button>
+    </div>
+  </header>
+
+  <main class="game-layout" id="game-root" aria-live="polite">
+    <section class="board-column" aria-label="Игровое поле">
+      <div class="board-meta">
+        <div><span>Ход</span><strong id="turn-number">—</strong></div>
+        <div class="board-status" id="board-status">Создайте новую партию</div>
+      </div>
+      <div class="board-frame" id="board-frame">
+        <img class="board-image" src="./assets/board/board.png" alt="Игровое поле «Точка перехода»">
+        <div class="pawns-layer" id="pawns-layer" aria-label="Фишки участниц"></div>
+        <div class="calibration-layer" id="calibration-layer" hidden></div>
+      </div>
+    </section>
+
+    <aside class="control-panel" aria-label="Панель ведущей">
+      <section class="turn-card panel-card">
+        <p class="eyebrow">Сейчас ходит</p>
+        <div class="current-person" id="current-person">—</div>
+        <div class="dice-row">
+          <div class="dice" id="dice" aria-label="Результат кубика">•</div>
+          <button class="primary-button roll-button" id="roll-button" type="button">Бросить кубик</button>
+        </div>
+        <p class="helper" id="turn-helper">Добавьте участниц, чтобы начать.</p>
+        <button class="text-button" id="next-player-button" type="button">Выбрать следующую участницу</button>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-heading"><h2>Участницы</h2><span id="players-count">0 / 6</span></div>
+        <div class="players-list" id="players-list"></div>
+      </section>
+
+      <section class="panel-card host-tools">
+        <details>
+          <summary>Инструменты ведущей</summary>
+          <div class="tool-grid">
+            <label>Участница<select id="position-player"></select></label>
+            <label>Ячейка<input id="position-value" type="number" min="0" max="75" value="0"></label>
+            <button class="secondary-button" id="set-position-button" type="button">Исправить позицию</button>
+          </div>
+          <div class="backup-row">
+            <button class="secondary-button" id="export-button" type="button">Экспорт JSON</button>
+            <label class="secondary-button file-button">Импорт JSON<input id="import-input" type="file" accept="application/json,.json"></label>
+          </div>
+        </details>
+      </section>
+
+      <section class="panel-card">
+        <div class="section-heading"><h2>Карта перехода</h2><button class="text-button" id="print-map-button" type="button">Печать / PDF</button></div>
+        <label class="map-person-label">Участница<select id="map-player"></select></label>
+        <div class="transition-map" id="transition-map"></div>
+      </section>
+
+      <section class="panel-card log-card">
+        <details>
+          <summary>Журнал партии</summary>
+          <ol id="game-log"></ol>
+        </details>
+      </section>
+    </aside>
+  </main>
+
+  <div class="modal-backdrop" id="card-modal" hidden>
+    <section class="card-dialog" role="dialog" aria-modal="true" aria-labelledby="card-title">
+      <div class="card-dialog-head"><div><p class="eyebrow" id="card-kicker">Карточка</p><h2 id="card-title">—</h2></div><span class="cell-badge" id="card-cell">—</span></div>
+      <div class="card-image-wrap"><img id="card-image" alt="Открытая игровая карточка"></div>
+      <div class="deck-exhausted" id="deck-exhausted" hidden><strong>Колода закончилась</strong><p>Все 24 карточки уже были открыты. Перемешайте только эту колоду, чтобы продолжить.</p></div>
+      <div class="card-dialog-actions">
+        <button class="quiet-button" id="skip-card-button" type="button">Пропустить карточку</button>
+        <button class="secondary-button" id="reshuffle-button" type="button" hidden>Перемешать колоду</button>
+        <button class="primary-button" id="confirm-card-button" type="button">Подтвердить и продолжить</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="start-modal">
+    <section class="start-dialog" role="dialog" aria-modal="true" aria-labelledby="start-title">
+      <p class="eyebrow">Онлайн-игра для ведущей</p>
+      <h1 id="start-title">Точка перехода</h1>
+      <p>Создайте спокойное пространство для движения от неопределённости к следующему шагу.</p>
+      <div id="resume-actions" hidden>
+        <button class="primary-button" id="resume-button" type="button">Продолжить игру</button>
+        <button class="secondary-button" id="fresh-button" type="button">Начать новую</button>
+      </div>
+      <form id="setup-form">
+        <div class="section-heading"><h2>Участницы</h2><button class="text-button" id="add-participant" type="button">+ Добавить</button></div>
+        <div id="participant-fields"></div>
+        <button class="primary-button full-width" type="submit">Начать партию</button>
+      </form>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="confirm-modal" hidden>
+    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <h2 id="confirm-title">Начать новую партию?</h2>
+      <p>Текущая партия будет удалена с этого устройства. Сначала можно сохранить резервную копию.</p>
+      <div class="confirm-actions"><button class="quiet-button" id="cancel-reset" type="button">Отмена</button><button class="primary-button danger-button" id="confirm-reset" type="button">Начать заново</button></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <section id="print-sheet" class="print-sheet" aria-hidden="true"></section>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+@page { size: A4; margin: 16mm; }
+body.printing-map { background: white !important; color: #163f3a !important; }
+body.printing-map > *:not(#print-sheet) { display: none !important; }
+body.printing-map #print-sheet { display: block !important; font-family: Georgia, serif; }
+.print-map-header { border-bottom: 2px solid #b98a32; padding-bottom: 12px; margin-bottom: 18px; }
+.print-map-header h1 { margin: 0; font-size: 28px; }
+.print-map-header p { margin: 5px 0 0; color: #5e716d; }
+.print-map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+.print-map-field { break-inside: avoid; border-bottom: 1px solid #c9d1cf; padding: 8px 0; }
+.print-map-field.wide { grid-column: 1 / -1; }
+.print-map-field strong { display: block; font: 700 11px/1.4 Arial, sans-serif; text-transform: uppercase; letter-spacing: .08em; color: #657873; }
+.print-map-field p { white-space: pre-wrap; margin: 5px 0; min-height: 22px; font-size: 15px; line-height: 1.45; }
