@@ -25,7 +25,7 @@ create table if not exists public.rooms (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   expires_at timestamptz not null default (now() + interval '24 hours'),
-  constraint rooms_code_format check (code ~ '^TP-[0-9]{4}$'),
+  constraint rooms_code_format check (code ~ '^TP-[0-9]{6}$'),
   constraint rooms_status_check check (status in ('waiting', 'playing', 'completed', 'closed')),
   constraint rooms_host_name_length check (char_length(host_name) between 1 and 80),
   constraint rooms_state_version_nonnegative check (state_version >= 0),
@@ -74,6 +74,9 @@ for each row execute function public.set_updated_at();
 drop trigger if exists transition_maps_set_updated_at on public.transition_maps;
 create trigger transition_maps_set_updated_at before update on public.transition_maps
 for each row execute function public.set_updated_at();
+
+-- Служебная trigger-функция не должна вызываться браузерными ролями напрямую.
+revoke all on function public.set_updated_at() from public, anon, authenticated;
 
 -- Эти помощники не раскрывают данные комнаты и позволяют политикам избежать рекурсии.
 create or replace function public.is_room_host(p_room_id uuid)
@@ -140,9 +143,19 @@ declare
 begin
   if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
   if char_length(v_host_name) < 1 or char_length(v_host_name) > 80 then raise exception 'INVALID_HOST_NAME'; end if;
+  -- Сериализуем параллельные попытки создания комнат одним пользователем.
+  perform pg_advisory_xact_lock(hashtextextended(v_user_id::text, 0));
+  if exists (
+    select 1 from public.rooms r
+    where r.host_user_id = v_user_id
+      and r.status in ('waiting', 'playing')
+      and r.expires_at > now()
+  ) then
+    raise exception 'ACTIVE_ROOM_EXISTS';
+  end if;
 
   for v_attempt in 1..40 loop
-    v_code := 'TP-' || lpad((floor(random() * 10000))::integer::text, 4, '0');
+    v_code := 'TP-' || lpad((floor(random() * 1000000))::integer::text, 6, '0');
     begin
       insert into public.rooms (code, host_user_id, host_name)
       values (v_code, v_user_id, v_host_name)
@@ -169,10 +182,13 @@ declare
   v_room public.rooms%rowtype;
 begin
   if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
-  if v_code !~ '^TP-[0-9]{4}$' then raise exception 'INVALID_ROOM_CODE'; end if;
+  if v_code !~ '^TP-[0-9]{6}$' then raise exception 'INVALID_ROOM_CODE'; end if;
 
   select * into v_room from public.rooms r where r.code = v_code;
   if not found then raise exception 'ROOM_NOT_FOUND'; end if;
+  if v_room.expires_at <= now() then raise exception 'ROOM_EXPIRED'; end if;
+  if v_room.status = 'closed' then raise exception 'ROOM_CLOSED'; end if;
+  if v_room.status <> 'waiting' then raise exception 'ROOM_NOT_WAITING'; end if;
 
   return query
   select v_room.code, v_room.host_name, v_room.status, v_room.expires_at,
@@ -203,7 +219,7 @@ declare
   v_count integer;
 begin
   if v_user_id is null then raise exception 'AUTH_REQUIRED'; end if;
-  if v_code !~ '^TP-[0-9]{4}$' then raise exception 'INVALID_ROOM_CODE'; end if;
+  if v_code !~ '^TP-[0-9]{6}$' then raise exception 'INVALID_ROOM_CODE'; end if;
   if char_length(v_name) < 1 or char_length(v_name) > 80 then raise exception 'INVALID_PLAYER_NAME'; end if;
   if v_color not in ('emerald','blue','purple','red','coral','turquoise') then raise exception 'INVALID_PLAYER_COLOR'; end if;
 

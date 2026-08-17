@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { normalizeRoomCode, sanitizeSharedState, attachPrivateMaps } from '../js/online-storage.js';
 
 test('normalizes invitation codes', () => {
-  assert.equal(normalizeRoomCode('4827'), 'TP-4827');
-  assert.equal(normalizeRoomCode('tp 4827'), 'TP-4827');
-  assert.equal(normalizeRoomCode('tp-4827'), 'TP-4827');
+  assert.equal(normalizeRoomCode('482701'), 'TP-482701');
+  assert.equal(normalizeRoomCode('tp 482701'), 'TP-482701');
+  assert.equal(normalizeRoomCode('tp-482701'), 'TP-482701');
+  assert.equal(normalizeRoomCode('4827'), '4827');
 });
 
 test('removes private maps from current state and undo history', () => {

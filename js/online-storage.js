@@ -2,8 +2,8 @@ const SESSION_KEY = 'tochka-perehoda-room-v1';
 
 export function normalizeRoomCode(value = '') {
   const compact = String(value).toUpperCase().replace(/\s+/g, '');
-  if (/^\d{4}$/.test(compact)) return `TP-${compact}`;
-  if (/^TP\d{4}$/.test(compact)) return `TP-${compact.slice(2)}`;
+  if (/^\d{6}$/.test(compact)) return `TP-${compact}`;
+  if (/^TP\d{6}$/.test(compact)) return `TP-${compact.slice(2)}`;
   return compact;
 }
 

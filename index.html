@@ -134,7 +134,7 @@
       <form id="join-room-form" class="online-form" hidden>
         <button class="text-button setup-back" type="button">← Выбрать режим</button>
         <h2>Войти в комнату</h2>
-        <label>Код комнаты<input name="roomCode" placeholder="TP-4827" maxlength="7" required></label>
+        <label>Код комнаты<input name="roomCode" placeholder="TP-482701" maxlength="9" pattern="TP-[0-9]{6}" title="Код вида TP-482701" required></label>
         <label>Ваше имя<input name="playerName" maxlength="80" autocomplete="name" required></label>
         <label>Фишка<select name="playerColor" required></select></label>
         <button class="primary-button full-width" type="submit">Присоединиться</button>

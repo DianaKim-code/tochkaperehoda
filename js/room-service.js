@@ -2,12 +2,13 @@ import { ensureAnonymousSession } from './supabase-client.js';
 import { normalizeRoomCode } from './online-storage.js';
 
 const ERROR_MESSAGES = {
-  AUTH_REQUIRED: 'Не удалось выполнить анонимный вход.', INVALID_ROOM_CODE: 'Введите код вида TP-4827.',
+  AUTH_REQUIRED: 'Не удалось выполнить анонимный вход.', INVALID_ROOM_CODE: 'Введите код вида TP-482701.',
   ROOM_NOT_FOUND: 'Комната не найдена.', ROOM_NOT_WAITING: 'Игра в этой комнате уже началась.',
   ROOM_EXPIRED: 'Срок действия комнаты истёк.', ROOM_CLOSED: 'Комната закрыта.', ROOM_FULL: 'В комнате уже 6 участниц.',
   COLOR_TAKEN: 'Эта фишка уже занята.', INVALID_HOST_NAME: 'Укажите имя ведущей.', INVALID_PLAYER_NAME: 'Укажите имя участницы.',
   HOST_CANNOT_JOIN_AS_PLAYER: 'Ведущая уже находится в этой комнате.', HOST_ONLY: 'Это действие доступно только ведущей.',
-  STATE_VERSION_CONFLICT: 'Состояние комнаты обновилось. Повторите действие.', MAP_ACCESS_DENIED: 'Эта карта перехода недоступна.'
+  STATE_VERSION_CONFLICT: 'Состояние комнаты обновилось. Повторите действие.', MAP_ACCESS_DENIED: 'Эта карта перехода недоступна.',
+  ACTIVE_ROOM_EXISTS: 'У вас уже есть активная комната. Вернитесь в неё или сначала закройте её.'
 };
 
 function friendly(error) {
