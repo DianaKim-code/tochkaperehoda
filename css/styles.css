@@ -17,6 +17,9 @@ button:disabled { cursor: not-allowed; opacity: .46; }
 .brand strong { font-family: Georgia, serif; font-size: 21px; letter-spacing: .02em; }
 .brand div > span { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .top-actions, .backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.room-chip { display: flex; align-items: center; gap: 9px; padding: 4px 8px 4px 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.72); }
+.room-chip > span { color: var(--muted); font-size: 12px; }
+.room-chip .text-button { min-height: 32px; padding: 4px 6px; }
 .quiet-button, .secondary-button, .primary-button, .text-button, .file-button { min-height: 42px; border-radius: 12px; border: 1px solid transparent; padding: 10px 15px; font-weight: 650; }
 .quiet-button { background: transparent; color: var(--ink); border-color: var(--line); }
 .secondary-button { background: #fff; color: var(--ink); border-color: rgba(20,63,58,.24); }
@@ -97,6 +100,17 @@ textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
 .start-dialog h1 { font-size: clamp(38px,7vw,61px); color: var(--ink); }
 .start-dialog > p { color: var(--muted); line-height: 1.55; }
 #resume-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+.mode-actions { display: grid; gap: 10px; margin-top: 22px; }
+.online-form { display: grid; gap: 13px; margin-top: 20px; }
+.online-form h2, .waiting-card h2 { margin: 0; font-family: Georgia, serif; font-weight: 500; }
+.setup-back { justify-self: start; }
+.waiting-card { border-color: rgba(189,138,45,.45); }
+.waiting-people { display: grid; gap: 8px; margin: 14px 0; }
+.waiting-person { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 11px; border-radius: 12px; background: #f5f2eb; }
+.waiting-person small { color: var(--muted); }
+.kick-player { min-height: 30px; padding: 4px 8px; }
+.participant-view .host-only, .participant-view .host-tools, .participant-view .stepper, .participant-view #map-player, .participant-view .map-person-label { display: none !important; }
+.participant-view .transition-map textarea:disabled, .participant-view .transition-map input:disabled { opacity: .72; }
 #setup-form { margin-top: 20px; }
 .participant-row { display: grid; grid-template-columns: 1fr 180px 38px; gap: 8px; align-items: end; margin: 9px 0; }
 .remove-participant { height: 42px; border: 1px solid rgba(141,57,49,.25); background: #fff; color: #8d3931; border-radius: 11px; }
@@ -119,6 +133,7 @@ textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
   .topbar { align-items: flex-start; }
   .brand div > span { display: none; }
   .top-actions { justify-content: flex-end; }
+  .room-chip { order: 2; width: 100%; justify-content: flex-end; }
   .top-actions .quiet-button { min-height: 36px; padding: 7px 9px; font-size: 12px; }
   .game-layout { padding: 10px; }
   .board-frame { border-radius: 16px; }
@@ -130,4 +145,3 @@ textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
   #resume-actions, .map-grid-two { grid-template-columns: 1fr; }
   .brand strong { font-size: 17px; }
 }
-

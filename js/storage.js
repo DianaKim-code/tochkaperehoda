@@ -35,3 +35,6 @@ export function readGameFile(file) {
   });
 }
 
+// Общий интерфейс хранилища: в локальном режиме подписка намеренно ничего не делает.
+export function subscribe() { return () => {}; }
+export function unsubscribe() {}

@@ -17,6 +17,7 @@
       <div><strong>Точка перехода</strong><span>пространство ведущей</span></div>
     </div>
     <div class="top-actions">
+      <div class="room-chip" id="room-chip" hidden><strong id="room-code-label">—</strong><span id="connection-status">Подключение…</span><button class="text-button" id="copy-code-button" type="button">Код</button><button class="text-button" id="copy-invite-button" type="button">Приглашение</button><button class="text-button" id="exit-room-button" type="button">Выйти</button><button class="text-button danger-text" id="close-room-button" type="button">Закрыть</button></div>
       <button class="quiet-button" id="undo-button" type="button">Отменить</button>
       <button class="quiet-button" id="backup-button" type="button">Резервная копия</button>
       <button class="quiet-button danger-text" id="new-game-button" type="button">Новая партия</button>
@@ -53,7 +54,15 @@
         <div class="players-list" id="players-list"></div>
       </section>
 
-      <section class="panel-card host-tools">
+      <section class="panel-card waiting-card" id="waiting-card" hidden>
+        <p class="eyebrow">Комната ожидания</p>
+        <h2 id="waiting-title">Ждём участниц</h2>
+        <p class="helper" id="waiting-helper"></p>
+        <div id="waiting-players"></div>
+        <button class="primary-button full-width" id="start-online-game-button" type="button">Начать игру</button>
+      </section>
+
+      <section class="panel-card host-tools" id="host-tools">
         <details>
           <summary>Инструменты ведущей</summary>
           <div class="tool-grid">
@@ -98,17 +107,37 @@
 
   <div class="modal-backdrop" id="start-modal">
     <section class="start-dialog" role="dialog" aria-modal="true" aria-labelledby="start-title">
-      <p class="eyebrow">Онлайн-игра для ведущей</p>
+      <p class="eyebrow">Локально или в общей комнате</p>
       <h1 id="start-title">Точка перехода</h1>
       <p>Создайте спокойное пространство для движения от неопределённости к следующему шагу.</p>
+      <div class="mode-actions" id="mode-actions">
+        <button class="primary-button" id="local-mode-button" type="button">Играть на этом устройстве</button>
+        <button class="secondary-button" id="create-room-button" type="button">Создать онлайн-комнату</button>
+        <button class="secondary-button" id="join-room-button" type="button">Войти по коду</button>
+      </div>
       <div id="resume-actions" hidden>
         <button class="primary-button" id="resume-button" type="button">Продолжить игру</button>
         <button class="secondary-button" id="fresh-button" type="button">Начать новую</button>
       </div>
-      <form id="setup-form">
+      <form id="setup-form" hidden>
+        <button class="text-button setup-back" type="button">← Выбрать режим</button>
         <div class="section-heading"><h2>Участницы</h2><button class="text-button" id="add-participant" type="button">+ Добавить</button></div>
         <div id="participant-fields"></div>
         <button class="primary-button full-width" type="submit">Начать партию</button>
+      </form>
+      <form id="create-room-form" class="online-form" hidden>
+        <button class="text-button setup-back" type="button">← Выбрать режим</button>
+        <h2>Создать комнату</h2>
+        <label>Имя ведущей<input name="hostName" maxlength="80" autocomplete="name" required></label>
+        <button class="primary-button full-width" type="submit">Создать и получить код</button>
+      </form>
+      <form id="join-room-form" class="online-form" hidden>
+        <button class="text-button setup-back" type="button">← Выбрать режим</button>
+        <h2>Войти в комнату</h2>
+        <label>Код комнаты<input name="roomCode" placeholder="TP-4827" maxlength="7" required></label>
+        <label>Ваше имя<input name="playerName" maxlength="80" autocomplete="name" required></label>
+        <label>Фишка<select name="playerColor" required></select></label>
+        <button class="primary-button full-width" type="submit">Присоединиться</button>
       </form>
     </section>
   </div>

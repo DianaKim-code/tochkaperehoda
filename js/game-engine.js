@@ -37,7 +37,7 @@ export function createGame(participants) {
     version: 1, id: uid(), createdAt: now, updatedAt: now, status: 'playing', turnNumber: 1, currentPlayerIndex: 0,
     dice: null, rolling: false, openCard: null, usedCards: blankUsedCards(), history: [], log: [],
     players: participants.map((person, index) => ({
-      id: uid(), name: person.name.trim() || `Участница ${index + 1}`, color: person.color, position: 0,
+      id: person.id || uid(), name: person.name.trim() || `Участница ${index + 1}`, color: person.color, position: 0,
       finished: false, resources: EMPTY_RESOURCES(), transitionMap: EMPTY_MAP()
     }))
   };

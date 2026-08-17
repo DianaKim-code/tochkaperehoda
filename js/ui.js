@@ -49,9 +49,9 @@ function playerOptions(state, selected) {
   return state.players.map(player => `<option value="${player.id}" ${player.id === selected ? 'selected' : ''}>${escapeHtml(player.name)}</option>`).join('');
 }
 
-export function renderTransitionMap(player) {
+export function renderTransitionMap(player, editable = true) {
   if (!player) { el.transition_map.innerHTML = '<p class="helper">Нет участниц.</p>'; return; }
-  const map = player.transitionMap;
+  const map = player.transitionMap || { request:'', tensionStart:'', tensionEnd:'', integrations:['','','','',''], decision:'', firstStep:'', deadline:'', support:'', takeaway:'' };
   el.transition_map.innerHTML = `
     <label>Исходный запрос<textarea data-map-field="request" placeholder="С чем участница входит в игру">${escapeHtml(map.request)}</textarea></label>
     <div class="map-grid-two"><label>Начальная оценка 0–10<input data-map-field="tensionStart" type="number" min="0" max="10" value="${escapeHtml(map.tensionStart)}"></label><label>Итоговая оценка 0–10<input data-map-field="tensionEnd" type="number" min="0" max="10" value="${escapeHtml(map.tensionEnd)}"></label></div>
@@ -60,6 +60,7 @@ export function renderTransitionMap(player) {
     <label>Первый безопасный шаг<textarea data-map-field="firstStep">${escapeHtml(map.firstStep)}</textarea></label>
     <div class="map-grid-two"><label>Срок<input data-map-field="deadline" value="${escapeHtml(map.deadline)}"></label><label>Необходимая поддержка<input data-map-field="support" value="${escapeHtml(map.support)}"></label></div>
     <label>С чем участница уходит<textarea data-map-field="takeaway">${escapeHtml(map.takeaway)}</textarea></label>`;
+  el.transition_map.querySelectorAll('input,textarea').forEach(input => { input.disabled = !editable; });
 }
 
 function renderCard(state) {
@@ -76,7 +77,7 @@ function renderCard(state) {
   if (!card.exhausted) { el.card_image.src = card.image; el.card_image.alt = `${DECKS[card.deck].title}, карточка ${card.number}`; }
 }
 
-export function renderGame(state, selectedMapPlayerId = null) {
+export function renderGame(state, selectedMapPlayerId = null, access = { role: 'local', playerId: null }) {
   if (!state) return;
   const current = currentPlayer(state);
   el.turn_number.textContent = state.turnNumber;
@@ -90,12 +91,20 @@ export function renderGame(state, selectedMapPlayerId = null) {
   renderPawns(state);
   renderPlayers(state);
   const mapId = state.players.some(player => player.id === selectedMapPlayerId) ? selectedMapPlayerId : current?.id || state.players[0]?.id;
-  el.map_player.innerHTML = playerOptions(state, mapId);
+  const participant = access.role === 'participant';
+  const allowedMapId = participant ? access.playerId : mapId;
+  el.map_player.innerHTML = playerOptions(state, allowedMapId);
   el.position_player.innerHTML = playerOptions(state, current?.id);
   el.position_value.value = current?.position ?? 0;
-  renderTransitionMap(state.players.find(player => player.id === mapId));
+  renderTransitionMap(state.players.find(player => player.id === allowedMapId), !participant || allowedMapId === access.playerId);
   el.game_log.innerHTML = state.log.length ? state.log.map(item => `<li><time>${new Date(item.at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</time> — ${escapeHtml(item.message)}</li>`).join('') : '<li>Действия появятся здесь.</li>';
   renderCard(state);
+  document.body.classList.toggle('participant-view', participant);
+  if (participant) {
+    [el.roll_button, el.next_player_button, el.undo_button, el.confirm_card_button, el.skip_card_button, el.reshuffle_button].forEach(button => { if (button) button.hidden = true; });
+  } else {
+    el.roll_button.hidden = false; el.next_player_button.hidden = false; el.undo_button.hidden = false; el.skip_card_button.hidden = false;
+  }
 }
 
 export function showToast(message, duration = 3200) {
@@ -141,4 +150,3 @@ export function setupCalibration() {
     }
   });
 }
-
