@@ -253,7 +253,7 @@ begin
 
   insert into public.transition_maps (room_id, player_id, user_id, data)
   values (v_room.id, v_player.id, v_user_id, '{}'::jsonb)
-  on conflict (room_id, player_id) do nothing;
+  on conflict on constraint transition_maps_room_player_unique do nothing;
 
   return query select v_room.id, v_player.id, v_room.code, v_room.status, v_room.host_name, v_room.expires_at;
 exception when unique_violation then
@@ -325,7 +325,7 @@ begin
 
   insert into public.transition_maps as tm (room_id, player_id, user_id, data)
   values (p_room_id, p_player_id, v_player.user_id, p_data)
-  on conflict (room_id, player_id) do update set data = excluded.data
+  on conflict on constraint transition_maps_room_player_unique do update set data = excluded.data
   returning tm.player_id, tm.data, tm.updated_at into player_id, data, updated_at;
   return next;
 end;

@@ -26,3 +26,8 @@ test('room creation is rate-limited per active host and trigger helper is revoke
   assert.match(sql, /host_user_id = v_user_id[\s\S]*status in \('waiting', 'playing'\)[\s\S]*expires_at > now\(\)[\s\S]*ACTIVE_ROOM_EXISTS/);
   assert.match(sql, /revoke all on function public\.set_updated_at\(\) from public, anon, authenticated;/);
 });
+
+test('transition map upserts use a named constraint without output-parameter ambiguity', () => {
+  assert.equal((sql.match(/on conflict on constraint transition_maps_room_player_unique/g) || []).length, 2);
+  assert.doesNotMatch(sql, /on conflict \(room_id, player_id\)/);
+});
