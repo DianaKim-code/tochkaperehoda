@@ -1,9 +1,9 @@
 import { loadGame, saveGame, clearGame, exportGame, readGameFile } from './storage.js';
 import { createGame, isValidGame, rollDice, finishCard, reshuffleDeck, changeResource, setPlayerPosition, selectNextPlayer, updateTransitionMap, undo } from './game-engine.js';
 import { el, COLORS, renderGame, renderTransitionMap, addParticipantRow, showToast, renderPrintSheet, setupCalibration } from './ui.js';
-import { createRoom, getJoinInfo, joinRoom, loadRoom, saveRoomState, saveMap, setConnection, leaveRoom, removePlayer, closeRoom } from './room-service.js';
+import { createRoom, getJoinInfo, joinRoom, loadRoom, findRoomAccessByCode, saveRoomState, saveMap, setConnection, leaveRoom, removePlayer, closeRoom } from './room-service.js';
 import { subscribeToRoom, unsubscribeFromRoom } from './realtime-service.js';
-import { normalizeRoomCode, readRoomSession, writeRoomSession, clearRoomSession, sanitizeSharedState, attachPrivateMaps } from './online-storage.js';
+import { normalizeRoomCode, readRoomSession, writeRoomSession, clearRoomSession, shouldRestoreRoomSession, sanitizeSharedState, attachPrivateMaps } from './online-storage.js';
 import { PAWN_LABELS } from '../data/board-coordinates.js';
 
 let gameState = null;
@@ -226,10 +226,20 @@ window.addEventListener('beforeunload', () => { if (roomContext?.role === 'parti
 async function boot() {
   const queryCode = normalizeRoomCode(new URLSearchParams(location.search).get('room') || ''); const session = readRoomSession(); const saved = loadGame();
   showSetup(isValidGame(saved) ? saved : null);
-  if (queryCode) {
-    resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false; el.join_room_form.elements.roomCode.value = queryCode;
-    try { const info = await getJoinInfo(queryCode); el.join_room_form.elements.playerColor.innerHTML = colorOptions(info.available_colors); } catch (error) { showToast(error.message, 5000); }
-  } else if (session?.roomId && session?.role) await enterOnline(session);
+  if (shouldRestoreRoomSession(queryCode, session)) await enterOnline(session);
+  else if (queryCode) {
+    try {
+      const existingAccess = await findRoomAccessByCode(queryCode);
+      if (existingAccess) await enterOnline(existingAccess);
+      else {
+        resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false; el.join_room_form.elements.roomCode.value = queryCode;
+        const info = await getJoinInfo(queryCode); el.join_room_form.elements.playerColor.innerHTML = colorOptions(info.available_colors);
+      }
+    } catch (error) {
+      resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false; el.join_room_form.elements.roomCode.value = queryCode;
+      showToast(error.message, 5000);
+    }
+  }
   setupCalibration();
 }
 

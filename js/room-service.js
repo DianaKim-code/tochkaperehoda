@@ -11,10 +11,19 @@ const ERROR_MESSAGES = {
   ACTIVE_ROOM_EXISTS: 'У вас уже есть активная комната. Вернитесь в неё или сначала закройте её.'
 };
 
+export function describeRoomError(error) {
+  const source = `${error?.message || ''} ${error?.details || ''}`;
+  const key = Object.keys(ERROR_MESSAGES).find(code => source.includes(code));
+  if (error?.code === 'PGRST116' || source.includes('Cannot coerce the result to a single JSON object')) {
+    return 'Доступ к комнате завершён. Возможно, ведущая удалила вас или комната больше недоступна.';
+  }
+  return key ? ERROR_MESSAGES[key] : (error?.message || 'Не удалось связаться с комнатой.');
+}
+
 function friendly(error) {
   const source = `${error?.message || ''} ${error?.details || ''}`;
   const key = Object.keys(ERROR_MESSAGES).find(code => source.includes(code));
-  const next = new Error(key ? ERROR_MESSAGES[key] : (error?.message || 'Не удалось связаться с комнатой.'));
+  const next = new Error(describeRoomError(error));
   next.code = key || error?.code;
   return next;
 }
@@ -47,4 +56,22 @@ export async function loadRoom(roomId) {
   if (playersResult.error) throw friendly(playersResult.error);
   if (mapsResult.error) throw friendly(mapsResult.error);
   return { room: roomResult.data, players: playersResult.data, maps: mapsResult.data };
+}
+
+export async function findRoomAccessByCode(code) {
+  const { supabase, session } = await ensureAnonymousSession();
+  const { data, error } = await supabase.from('rooms')
+    .select('id,code,host_user_id')
+    .eq('code', normalizeRoomCode(code))
+    .maybeSingle();
+  if (error) throw friendly(error);
+  if (!data) return null;
+  if (data.host_user_id === session.user.id) return { roomId: data.id, code: data.code, role: 'host', playerId: null };
+  const { data: player, error: playerError } = await supabase.from('room_players')
+    .select('id')
+    .eq('room_id', data.id)
+    .eq('user_id', session.user.id)
+    .maybeSingle();
+  if (playerError) throw friendly(playerError);
+  return player ? { roomId: data.id, code: data.code, role: 'participant', playerId: player.id } : null;
 }
