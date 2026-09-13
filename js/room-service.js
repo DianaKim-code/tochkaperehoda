@@ -8,7 +8,10 @@ const ERROR_MESSAGES = {
   COLOR_TAKEN: 'Эта фишка уже занята.', INVALID_HOST_NAME: 'Укажите имя ведущей.', INVALID_PLAYER_NAME: 'Укажите имя участницы.',
   HOST_CANNOT_JOIN_AS_PLAYER: 'Ведущая уже находится в этой комнате.', HOST_ONLY: 'Это действие доступно только ведущей.',
   STATE_VERSION_CONFLICT: 'Состояние комнаты обновилось. Повторите действие.', MAP_ACCESS_DENIED: 'Эта карта перехода недоступна.',
-  ACTIVE_ROOM_EXISTS: 'У вас уже есть активная комната. Вернитесь в неё или сначала закройте её.'
+  ACTIVE_ROOM_EXISTS: 'У вас уже есть активная комната. Вернитесь в неё или сначала закройте её.',
+  PLAYER_NOT_FOUND: 'Вы больше не участвуете в этой комнате.', NOT_CURRENT_PLAYER: 'Сейчас ход другой участницы.',
+  GAME_NOT_STARTED: 'Игра ещё не началась.', CARD_ALREADY_OPEN: 'Сначала ведущая должна завершить открытую карточку.',
+  ROLL_REQUEST_NOT_READY: 'Бросок ещё не применён ведущей.'
 };
 
 export function describeRoomError(error) {
@@ -44,6 +47,19 @@ export const setConnection = (roomId, connected) => rpc('set_player_connection',
 export const leaveRoom = roomId => rpc('leave_game_room', { p_room_id: roomId });
 export const removePlayer = (roomId, playerId) => rpc('remove_room_player', { p_room_id: roomId, p_player_id: playerId });
 export const closeRoom = roomId => rpc('close_game_room', { p_room_id: roomId });
+export const requestParticipantRoll = (roomId, version) => rpc('request_participant_roll', { p_room_id: roomId, p_expected_version: version });
+export const completeParticipantRoll = requestId => rpc('complete_participant_roll', { p_request_id: requestId });
+
+export async function loadPendingRollRequests(roomId) {
+  const { supabase } = await ensureAnonymousSession();
+  const { data, error } = await supabase.from('participant_roll_requests')
+    .select('id,room_id,player_id,state_version,roll_value,status,created_at')
+    .eq('room_id', roomId)
+    .eq('status', 'pending')
+    .order('created_at');
+  if (error) throw friendly(error);
+  return data || [];
+}
 
 export async function loadRoom(roomId) {
   const { supabase } = await ensureAnonymousSession();

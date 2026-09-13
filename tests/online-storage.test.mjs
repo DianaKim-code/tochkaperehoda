@@ -30,9 +30,9 @@ test('normalizes an empty database map for the transition-map form', () => {
   assert.deepEqual(result.players[0].transitionMap.integrations, ['', '', '', '', '']);
 });
 
-test('restores membership before treating the room query as a new invitation', () => {
+test('restores saved membership before treating any room query as a new invitation', () => {
   const session = { roomId: 'room-1', code: 'TP-808096', role: 'participant' };
   assert.equal(shouldRestoreRoomSession('TP-808096', session), true);
   assert.equal(shouldRestoreRoomSession('', session), true);
-  assert.equal(shouldRestoreRoomSession('TP-999999', session), false);
+  assert.equal(shouldRestoreRoomSession('TP-999999', session), true);
 });

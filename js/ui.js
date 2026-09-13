@@ -1,6 +1,7 @@
 import { BOARD_COORDINATES, PAWN_IMAGES, PAWN_LABELS } from '../data/board-coordinates.js';
 import { DECKS } from '../data/decks.js';
 import { currentPlayer, resourceBalance } from './game-engine.js';
+import { participantRollUiState } from './online-storage.js';
 import { zoneForCell } from '../data/board-map.js';
 
 export const COLORS = ['emerald', 'blue', 'purple', 'red', 'coral', 'turquoise'];
@@ -85,6 +86,8 @@ export function renderGame(state, selectedMapPlayerId = null, access = { role: '
   el.current_person.innerHTML = current ? `<img src="${PAWN_IMAGES[current.color]}" alt="" style="width:34px;height:34px;object-fit:contain;vertical-align:middle;margin-right:8px">${escapeHtml(current.name)}` : '—';
   el.dice.textContent = state.dice || '•';
   el.turn_helper.textContent = state.openCard ? 'Сначала подтвердите или пропустите открытую карточку.' : current?.finished ? 'Путь участницы завершён.' : 'Кубик переместит фишку и откроет карточку.';
+  el.roll_button.textContent = 'Бросить кубик';
+  el.roll_button.setAttribute('aria-label', 'Бросить кубик');
   el.roll_button.disabled = Boolean(state.openCard || !current || current.finished || state.status !== 'playing');
   el.next_player_button.disabled = state.players.length < 2 || state.status !== 'playing';
   el.undo_button.disabled = !state.history?.length;
@@ -101,7 +104,20 @@ export function renderGame(state, selectedMapPlayerId = null, access = { role: '
   renderCard(state);
   document.body.classList.toggle('participant-view', participant);
   if (participant) {
-    [el.roll_button, el.next_player_button, el.undo_button, el.confirm_card_button, el.skip_card_button, el.reshuffle_button].forEach(button => { if (button) button.hidden = true; });
+    const rollState = participantRollUiState(state, access.playerId, access.pendingRollVersion, access.connectionState);
+    el.roll_button.hidden = false;
+    el.roll_button.disabled = rollState.disabled;
+    el.roll_button.textContent = rollState.label;
+    el.roll_button.setAttribute('aria-label', `${rollState.label}. ${rollState.reason}`);
+    el.turn_helper.textContent = rollState.reason;
+    [el.next_player_button, el.undo_button, el.confirm_card_button, el.skip_card_button, el.reshuffle_button].forEach(button => { if (button) button.hidden = true; });
+  } else if (access.role === 'host') {
+    el.roll_button.hidden = false;
+    el.roll_button.disabled = true;
+    el.roll_button.textContent = current ? `Ожидаем бросок: ${current.name}` : 'Ожидаем участницу';
+    el.roll_button.setAttribute('aria-label', el.roll_button.textContent);
+    el.turn_helper.textContent = state.openCard ? 'Завершите открытую карточку, чтобы продолжить.' : 'Текущая участница бросает кубик со своего устройства.';
+    el.next_player_button.hidden = false; el.undo_button.hidden = false; el.skip_card_button.hidden = false;
   } else {
     el.roll_button.hidden = false; el.next_player_button.hidden = false; el.undo_button.hidden = false; el.skip_card_button.hidden = false;
   }

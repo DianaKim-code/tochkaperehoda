@@ -20,6 +20,7 @@ export async function subscribeToRoom(roomId, handlers) {
   watch('rooms', payload => handlers.onRoom?.(payload), 'id');
   watch('room_players', payload => handlers.onPlayers?.(payload));
   watch('transition_maps', payload => handlers.onMaps?.(payload));
+  watch('participant_roll_requests', payload => handlers.onRollRequest?.(payload));
   onlineHandler = () => status(navigator.onLine ? 'Переподключение…' : 'Нет соединения');
   window.addEventListener('online', onlineHandler);
   window.addEventListener('offline', onlineHandler);

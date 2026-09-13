@@ -111,9 +111,9 @@
       <h1 id="start-title">Точка перехода</h1>
       <p>Создайте спокойное пространство для движения от неопределённости к следующему шагу.</p>
       <div class="mode-actions" id="mode-actions">
-        <button class="primary-button" id="local-mode-button" type="button">Играть на этом устройстве</button>
-        <button class="secondary-button" id="create-room-button" type="button">Создать онлайн-комнату</button>
-        <button class="secondary-button" id="join-room-button" type="button">Войти по коду</button>
+        <button class="primary-button" id="local-mode-button" type="button">Локальная игра на одном устройстве</button>
+        <button class="secondary-button" id="create-room-button" type="button">Ведущая — создать онлайн-комнату</button>
+        <button class="secondary-button" id="join-room-button" type="button">Участница — войти по коду</button>
       </div>
       <div id="resume-actions" hidden>
         <button class="primary-button" id="resume-button" type="button">Продолжить игру</button>
@@ -133,10 +133,12 @@
       </form>
       <form id="join-room-form" class="online-form" hidden>
         <button class="text-button setup-back" type="button">← Выбрать режим</button>
-        <h2>Войти в комнату</h2>
-        <label>Код комнаты<input name="roomCode" placeholder="TP-482701" maxlength="9" pattern="TP-[0-9]{6}" title="Код вида TP-482701" required></label>
+        <h2 id="join-room-title">Войти в комнату</h2>
+        <p class="invite-code" id="invite-room-code" hidden></p>
+        <label id="join-room-code-field">Код комнаты<input name="roomCode" placeholder="TP-482701" maxlength="9" pattern="TP-[0-9]{6}" title="Код вида TP-482701" required></label>
         <label>Ваше имя<input name="playerName" maxlength="80" autocomplete="name" required></label>
         <label>Фишка<select name="playerColor" required></select></label>
+        <p class="helper form-message" id="join-room-message" aria-live="polite"></p>
         <button class="primary-button full-width" type="submit">Присоединиться</button>
       </form>
     </section>

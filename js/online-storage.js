@@ -21,7 +21,18 @@ export function clearRoomSession() {
 
 export function shouldRestoreRoomSession(queryCode, session) {
   if (!session?.roomId || !session?.role) return false;
-  return !queryCode || normalizeRoomCode(queryCode) === normalizeRoomCode(session.code);
+  return true;
+}
+
+export function participantRollUiState(state, playerId, pendingVersion = null, connectionState = 'Подключено') {
+  const current = state?.players?.[state.currentPlayerIndex] || null;
+  if (connectionState !== 'Подключено') return { disabled: true, label: 'Нет соединения', reason: 'Проверьте подключение к интернету.' };
+  if (!state || state.status !== 'playing' || !current) return { disabled: true, label: 'Игра ещё не началась', reason: 'Ожидайте начала игры.' };
+  if (state.openCard) return { disabled: true, label: 'Карточка открыта', reason: 'Ожидайте действия ведущей.' };
+  if (pendingVersion != null) return { disabled: true, label: 'Ожидаем ведущую…', reason: 'Бросок отправлен и ожидает синхронизации.' };
+  if (current.id !== playerId) return { disabled: true, label: `Сейчас ход: ${current.name}`, reason: 'Кнопка станет доступна в ваш ход.' };
+  if (current.finished) return { disabled: true, label: 'Путь завершён', reason: 'Ваш путь уже завершён.' };
+  return { disabled: false, label: 'Бросить кубик', reason: 'Нажмите, чтобы бросить кубик.' };
 }
 
 export function sanitizeSharedState(value) {

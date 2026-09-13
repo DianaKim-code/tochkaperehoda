@@ -1,7 +1,7 @@
 import { loadGame, saveGame, clearGame, exportGame, readGameFile } from './storage.js';
 import { createGame, isValidGame, rollDice, finishCard, reshuffleDeck, changeResource, setPlayerPosition, selectNextPlayer, updateTransitionMap, undo } from './game-engine.js';
 import { el, COLORS, renderGame, renderTransitionMap, addParticipantRow, showToast, renderPrintSheet, setupCalibration } from './ui.js';
-import { createRoom, getJoinInfo, joinRoom, loadRoom, findRoomAccessByCode, saveRoomState, saveMap, setConnection, leaveRoom, removePlayer, closeRoom } from './room-service.js';
+import { createRoom, getJoinInfo, joinRoom, loadRoom, findRoomAccessByCode, saveRoomState, saveMap, setConnection, leaveRoom, removePlayer, closeRoom, requestParticipantRoll, completeParticipantRoll, loadPendingRollRequests } from './room-service.js';
 import { subscribeToRoom, unsubscribeFromRoom } from './realtime-service.js';
 import { normalizeRoomCode, readRoomSession, writeRoomSession, clearRoomSession, shouldRestoreRoomSession, sanitizeSharedState, attachPrivateMaps } from './online-storage.js';
 import { PAWN_LABELS } from '../data/board-coordinates.js';
@@ -13,8 +13,13 @@ let roomContext = null;
 let refreshing = false;
 let refreshQueued = false;
 let mapSaveTimer;
+let pendingRollVersion = null;
+let processingRollRequests = false;
+let rollRequestPollTimer = null;
+let connectionState = 'Подключение…';
+let invitationMode = false;
 
-const access = () => roomContext ? { role: roomContext.role, playerId: roomContext.playerId } : { role: 'local', playerId: null };
+const access = () => roomContext ? { role: roomContext.role, playerId: roomContext.playerId, pendingRollVersion, connectionState } : { role: 'local', playerId: null };
 const isHost = () => roomContext?.role === 'host';
 const canControlGame = () => !roomContext || isHost();
 const escapeMarkup = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
@@ -29,7 +34,7 @@ function renderCurrent() {
 }
 
 async function commit(next, toastMessage = null) {
-  if (!canControlGame()) return;
+  if (!canControlGame()) return false;
   if (roomContext) next.players?.forEach(player => { player.transitionMap ||= structuredClone(roomContext.maps.get(player.id)); });
   gameState = next;
   if (roomContext) {
@@ -40,20 +45,121 @@ async function commit(next, toastMessage = null) {
     } catch (error) {
       showToast(error.message, 5000);
       await refreshOnline();
-      return;
+      return false;
     }
   } else saveGame(gameState);
   renderCurrent();
   if (roomContext) renderWaiting();
   if (toastMessage) showToast(toastMessage);
+  return true;
+}
+
+async function animateDice(finalValue = null) {
+  el.dice.classList.add('is-rolling');
+  const animation = setInterval(() => { el.dice.textContent = Math.floor(Math.random() * 6) + 1; }, 80);
+  await new Promise(resolve => setTimeout(resolve, 640));
+  clearInterval(animation);
+  el.dice.classList.remove('is-rolling');
+  if (finalValue != null) el.dice.textContent = finalValue;
+}
+
+async function processRollRequests() {
+  if (!isHost() || processingRollRequests || !roomContext || !gameState) return;
+  processingRollRequests = true;
+  try {
+    const requests = await loadPendingRollRequests(roomContext.roomId);
+    for (const request of requests) {
+      if (!isHost() || !roomContext || !gameState) break;
+      if (request.state_version < roomContext.version) {
+        await completeParticipantRoll(request.id);
+        continue;
+      }
+      if (request.state_version > roomContext.version) {
+        await refreshOnline();
+        break;
+      }
+      const current = gameState.players[gameState.currentPlayerIndex];
+      if (roomContext.status !== 'playing' || gameState.openCard || current?.id !== request.player_id) {
+        await refreshOnline();
+        break;
+      }
+      await animateDice(request.roll_value);
+      const applied = await commit(rollDice(gameState, request.roll_value));
+      if (!applied) break;
+      await completeParticipantRoll(request.id);
+    }
+  } catch (error) {
+    showToast(error.message || 'Не удалось обработать бросок участницы.', 5000);
+  } finally {
+    processingRollRequests = false;
+  }
+}
+
+function startRollRequestPolling() {
+  if (!isHost() || rollRequestPollTimer) return;
+  rollRequestPollTimer = window.setInterval(() => {
+    if (roomContext?.status === 'playing') processRollRequests();
+  }, 2000);
+}
+
+function stopRollRequestPolling() {
+  if (!rollRequestPollTimer) return;
+  window.clearInterval(rollRequestPollTimer);
+  rollRequestPollTimer = null;
 }
 
 function resetModePicker() {
+  invitationMode = false;
   el.mode_actions.hidden = false;
   el.resume_actions.hidden = true;
   el.setup_form.hidden = true;
   el.create_room_form.hidden = true;
   el.join_room_form.hidden = true;
+  el.join_room_title.textContent = 'Войти в комнату';
+  el.join_room_code_field.hidden = false;
+  el.invite_room_code.hidden = true;
+  el.join_room_message.textContent = '';
+  el.join_room_form.elements.roomCode.readOnly = false;
+  el.join_room_form.elements.playerColor.closest('label').hidden = false;
+  el.join_room_form.querySelector('[type="submit"]').disabled = false;
+}
+
+function configureJoinForm({ invite = false, code = '' } = {}) {
+  resetModePicker();
+  invitationMode = invite;
+  el.mode_actions.hidden = true;
+  el.join_room_form.hidden = false;
+  el.join_room_title.textContent = invite ? 'Присоединиться к игре' : 'Войти в комнату';
+  el.join_room_form.elements.roomCode.value = code;
+  el.join_room_form.elements.roomCode.readOnly = invite;
+  el.join_room_code_field.hidden = invite;
+  el.invite_room_code.hidden = !invite;
+  el.invite_room_code.textContent = invite ? `Комната ${code}` : '';
+  el.join_room_message.textContent = '';
+  el.join_room_form.elements.playerColor.innerHTML = '';
+  el.join_room_form.elements.playerColor.closest('label').hidden = invite;
+  el.join_room_form.querySelector('[type="submit"]').disabled = invite;
+}
+
+async function loadJoinFormInfo(code, invite = false) {
+  const form = el.join_room_form;
+  form.elements.playerColor.innerHTML = '';
+  form.elements.playerColor.closest('label').hidden = true;
+  form.querySelector('[type="submit"]').disabled = true;
+  el.join_room_message.textContent = 'Проверяем комнату…';
+  try {
+    const info = await getJoinInfo(code);
+    form.elements.roomCode.value = info.normalized_code;
+    form.elements.playerColor.innerHTML = colorOptions(info.available_colors);
+    form.elements.playerColor.closest('label').hidden = false;
+    form.querySelector('[type="submit"]').disabled = !info.available_colors.length;
+    el.join_room_message.textContent = info.available_colors.length ? '' : 'В комнате нет свободных фишек.';
+    return true;
+  } catch (error) {
+    el.join_room_message.textContent = error.message;
+    if (!invite) showToast(error.message, 5000);
+    return false;
+  }
 }
 
 function showSetup(saved = null) {
@@ -98,6 +204,14 @@ function renderWaiting() {
   el.waiting_players.innerHTML = `<div class="waiting-people">${hostRow}${playerRows || '<p class="helper">Пока никто не присоединился.</p>'}</div>`;
   el.start_online_game_button.hidden = !isHost();
   el.start_online_game_button.disabled = !roomContext.players.length;
+  el.roll_button.disabled = true;
+  if (!isHost()) {
+    document.body.classList.add('participant-view');
+    el.roll_button.hidden = false;
+    el.roll_button.textContent = 'Игра ещё не началась';
+    el.roll_button.setAttribute('aria-label', 'Игра ещё не началась. Ожидайте ведущую.');
+    el.turn_helper.textContent = 'Ожидайте, пока ведущая начнёт игру.';
+  }
   el.start_modal.hidden = true;
   el.board_status.textContent = 'Комната ожидания';
 }
@@ -105,21 +219,25 @@ function renderWaiting() {
 const mapsFromRows = rows => new Map((rows || []).map(row => [row.player_id, row.data]));
 
 async function refreshOnline() {
-  if (!roomContext) return;
-  if (refreshing) { refreshQueued = true; return; }
+  if (!roomContext) return false;
+  if (refreshing) { refreshQueued = true; return false; }
   refreshing = true;
   try {
     const { room, players, maps } = await loadRoom(roomContext.roomId);
     if (room.status === 'closed' || new Date(room.expires_at) <= new Date()) throw new Error('Комната закрыта или срок её действия истёк.');
     roomContext = { ...roomContext, code: room.code, hostName: room.host_name, status: room.status, version: room.state_version, players, maps: mapsFromRows(maps) };
+    if (pendingRollVersion != null && (room.state_version > pendingRollVersion || room.status !== 'playing')) pendingRollVersion = null;
     if (room.game_state && isValidGame(room.game_state)) {
       gameState = attachPrivateMaps(room.game_state, roomContext.maps);
       selectedMapPlayerId = roomContext.role === 'participant' ? roomContext.playerId : (selectedMapPlayerId || gameState.players[0]?.id);
       renderCurrent(); el.start_modal.hidden = true;
     }
     renderRoomChrome(); renderWaiting();
+    if (isHost() && room.status === 'playing') queueMicrotask(processRollRequests);
+    return true;
   } catch (error) {
     await exitOnline(false); showToast(error.message || 'Доступ к комнате завершён.', 6000);
+    return false;
   } finally {
     refreshing = false;
     if (refreshQueued) { refreshQueued = false; refreshOnline(); }
@@ -129,13 +247,23 @@ async function refreshOnline() {
 async function enterOnline(session) {
   roomContext = { ...session, version: 0, status: 'waiting', players: [], maps: new Map() };
   writeRoomSession(session); renderRoomChrome();
-  await subscribeToRoom(session.roomId, { onStatus: value => { el.connection_status.textContent = value; }, onRoom: refreshOnline, onPlayers: refreshOnline, onMaps: refreshOnline });
+  await subscribeToRoom(session.roomId, {
+    onStatus: value => { connectionState = value; el.connection_status.textContent = value; if (gameState) renderCurrent(); },
+    onRoom: refreshOnline,
+    onPlayers: refreshOnline,
+    onMaps: refreshOnline,
+    onRollRequest: () => { if (isHost()) processRollRequests(); }
+  });
   if (session.role === 'participant') setConnection(session.roomId, true).catch(() => {});
-  await refreshOnline();
+  const restored = await refreshOnline();
+  startRollRequestPolling();
+  return restored;
 }
 
 async function exitOnline(callServer = true) {
   const context = roomContext; roomContext = null;
+  stopRollRequestPolling();
+  pendingRollVersion = null; connectionState = 'Подключение…';
   await unsubscribeFromRoom();
   if (callServer && context?.role === 'participant') await leaveRoom(context.roomId).catch(() => {});
   clearRoomSession(); gameState = null; selectedMapPlayerId = null;
@@ -147,11 +275,17 @@ async function exitOnline(callServer = true) {
 el.local_mode_button.addEventListener('click', showLocalSetup);
 el.create_room_button.addEventListener('click', () => { resetModePicker(); el.mode_actions.hidden = true; el.create_room_form.hidden = false; });
 el.join_room_button.addEventListener('click', async () => {
-  resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false;
+  const previousCode = el.join_room_form.elements.roomCode.value;
+  configureJoinForm({ code: previousCode });
   const code = el.join_room_form.elements.roomCode.value;
-  if (code) try { const info = await getJoinInfo(code); el.join_room_form.elements.playerColor.innerHTML = colorOptions(info.available_colors); } catch (error) { showToast(error.message); }
+  if (code) await loadJoinFormInfo(code);
 });
-document.querySelectorAll('.setup-back').forEach(button => button.addEventListener('click', resetModePicker));
+document.querySelectorAll('.setup-back').forEach(button => button.addEventListener('click', event => {
+  if (invitationMode && event.currentTarget.closest('#join-room-form')) {
+    const url = new URL(location.href); url.searchParams.delete('room'); history.replaceState(null, '', url);
+  }
+  resetModePicker();
+}));
 
 el.create_room_form.addEventListener('submit', async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
@@ -160,8 +294,7 @@ el.create_room_form.addEventListener('submit', async event => {
 });
 
 el.join_room_form.elements.roomCode.addEventListener('change', async event => {
-  try { const info = await getJoinInfo(event.target.value); event.target.value = info.normalized_code; el.join_room_form.elements.playerColor.innerHTML = colorOptions(info.available_colors); }
-  catch (error) { showToast(error.message); }
+  if (!event.target.readOnly) await loadJoinFormInfo(event.target.value);
 });
 el.join_room_form.addEventListener('submit', async event => {
   event.preventDefault(); const form = event.currentTarget; const button = event.submitter; button.disabled = true;
@@ -191,9 +324,31 @@ el.exit_room_button.addEventListener('click', () => exitOnline(true));
 el.close_room_button.addEventListener('click', async () => { if (!isHost() || !confirm('Закрыть комнату для всех участниц?')) return; try { await closeRoom(roomContext.roomId); await exitOnline(false); showToast('Комната закрыта.'); } catch (error) { showToast(error.message); } });
 
 el.roll_button.addEventListener('click', async () => {
-  if (!gameState || rolling || gameState.openCard || !canControlGame()) return;
-  rolling = true; el.roll_button.disabled = true; el.dice.classList.add('is-rolling'); const animation = setInterval(() => { el.dice.textContent = Math.floor(Math.random() * 6) + 1; }, 80);
-  await new Promise(resolve => setTimeout(resolve, 640)); clearInterval(animation); el.dice.classList.remove('is-rolling'); rolling = false; await commit(rollDice(gameState));
+  if (!gameState || rolling || gameState.openCard) return;
+  if (roomContext?.role === 'host') return;
+  if (roomContext?.role === 'participant') {
+    const current = gameState.players[gameState.currentPlayerIndex];
+    if (pendingRollVersion != null || roomContext.status !== 'playing' || current?.id !== roomContext.playerId || connectionState !== 'Подключено') return;
+    rolling = true;
+    el.roll_button.disabled = true;
+    try {
+      const request = await requestParticipantRoll(roomContext.roomId, roomContext.version);
+      pendingRollVersion = request.state_version;
+      renderCurrent();
+    } catch (error) {
+      pendingRollVersion = null;
+      showToast(error.message || 'Не удалось отправить бросок. Проверьте соединение.', 5000);
+      await refreshOnline();
+    } finally {
+      rolling = false;
+    }
+    return;
+  }
+  rolling = true;
+  el.roll_button.disabled = true;
+  await animateDice();
+  rolling = false;
+  await commit(rollDice(gameState));
 });
 el.confirm_card_button.addEventListener('click', () => commit(finishCard(gameState, false)));
 el.skip_card_button.addEventListener('click', () => commit(finishCard(gameState, true), 'Карточка пропущена и записана в журнал.'));
@@ -226,18 +381,19 @@ window.addEventListener('beforeunload', () => { if (roomContext?.role === 'parti
 async function boot() {
   const queryCode = normalizeRoomCode(new URLSearchParams(location.search).get('room') || ''); const session = readRoomSession(); const saved = loadGame();
   showSetup(isValidGame(saved) ? saved : null);
-  if (shouldRestoreRoomSession(queryCode, session)) await enterOnline(session);
-  else if (queryCode) {
+  let restored = false;
+  if (shouldRestoreRoomSession(queryCode, session)) restored = await enterOnline(session);
+  if (!restored && queryCode) {
     try {
       const existingAccess = await findRoomAccessByCode(queryCode);
       if (existingAccess) await enterOnline(existingAccess);
       else {
-        resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false; el.join_room_form.elements.roomCode.value = queryCode;
-        const info = await getJoinInfo(queryCode); el.join_room_form.elements.playerColor.innerHTML = colorOptions(info.available_colors);
+        configureJoinForm({ invite: true, code: queryCode });
+        await loadJoinFormInfo(queryCode, true);
       }
     } catch (error) {
-      resetModePicker(); el.mode_actions.hidden = true; el.join_room_form.hidden = false; el.join_room_form.elements.roomCode.value = queryCode;
-      showToast(error.message, 5000);
+      configureJoinForm({ invite: true, code: queryCode });
+      el.join_room_message.textContent = error.message;
     }
   }
   setupCalibration();

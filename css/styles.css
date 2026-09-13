@@ -103,6 +103,8 @@ textarea { min-height: 74px; resize: vertical; line-height: 1.45; }
 .mode-actions { display: grid; gap: 10px; margin-top: 22px; }
 .online-form { display: grid; gap: 13px; margin-top: 20px; }
 .online-form h2, .waiting-card h2 { margin: 0; font-family: Georgia, serif; font-weight: 500; }
+.invite-code { margin: 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: #f5f2eb; color: var(--ink); font-weight: 800; letter-spacing: .05em; }
+.form-message { min-height: 19px; color: var(--muted); }
 .setup-back { justify-self: start; }
 .waiting-card { border-color: rgba(189,138,45,.45); }
 .waiting-people { display: grid; gap: 8px; margin: 14px 0; }
